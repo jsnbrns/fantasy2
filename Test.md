@@ -1216,7 +1216,7 @@ proc.time() - initial_time
 ```
 
     ##    user  system elapsed 
-    ##    2.58    0.03    2.64
+    ##    2.58    0.03    2.67
 
 ``` r
 initial_time <- proc.time()
@@ -1225,7 +1225,7 @@ proc.time() - initial_time
 ```
 
     ##    user  system elapsed 
-    ##    0.06    0.00    0.08
+    ##    0.07    0.00    0.08
 
 ``` r
 system.time({
@@ -1234,7 +1234,7 @@ system.time({
 ```
 
     ##    user  system elapsed 
-    ##    0.07    0.00    0.08
+    ##    0.05    0.01    0.07
 
 ``` r
 # vectorized operation
@@ -1276,7 +1276,7 @@ for (i in 1:no_sim) {
 mean(below) # estimate required probability
 ```
 
-    ## [1] 0.5671
+    ## [1] 0.5717
 
 ``` r
 # greater than 0.4411
@@ -1297,10 +1297,4 @@ for (i in 1:10) {
     
   }
 }
-
-table(round(runif(10000, min = 1, max = 5)))
 ```
-
-    ## 
-    ##    1    2    3    4    5 
-    ## 1210 2469 2632 2459 1230
