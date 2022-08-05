@@ -1199,3 +1199,9 @@ h_c\_maintvsfinance
 </tr>
 </tbody>
 </table>
+
+``` r
+3+4
+```
+
+    ## [1] 7
