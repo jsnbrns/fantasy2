@@ -10,6 +10,7 @@ output: github_document
 library(tidyverse)
 library(haven)
 library(readxl)
+library(psych)
 ```
 
 ## data
@@ -664,3 +665,51 @@ usable_data %>%
   write_csv(file = "FanS2 fantasy target coding.csv")
 ```
 
+# Set up for EFAs 
+## Mardia's Test, partnered fantasy 
+
+I am running Mardia's test on the data. First, I'm going to grab a subset of the data (only the partnered fantasy checklist). Then I will run the actual test. 
+
+```{r}
+p_checklist<-usable_data %>%  
+  select(c(110:159)) # Selected only the partnered fantasy checklist 
+
+mardia(p_checklist, na.rm = T)
+```
+
+These results suggest that this data is non-normal, so I will calculate polychoric correlation matrices. 
+
+## Mardia's Test, solitary fantasy
+
+I'm rerunning the same analysis, but using the solitary fantasy.
+
+```{r}
+s_checklist<-usable_data %>%  
+  select(c(173:222)) # Selected only the solitary fantasy checklist 
+
+mardia(s_checklist, na.rm = T)
+```
+
+These results show that the solitary checklist is also non-normal (especially the Q-Q plot).
+
+## Calculating polychoric correlation matrices
+
+Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package. 
+
+```{r}
+# Partnered fantasy
+p_check_poly<-polychoric(p_checklist, smooth = T, # Smoothing the data
+                         global = F, # running the analysis using the local values
+                         na.rm = T # removing the missing data
+                         )
+
+p_check_matrix<-p_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
+
+# Solitary fantasy
+s_check_poly<-polychoric(s_checklist, smooth = T, # Smoothing the data
+                         global = F, # running the analysis using the local values
+                         na.rm = T # removing the missing data
+                         )
+
+s_check_matrix<-s_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
+```
