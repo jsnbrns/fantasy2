@@ -2,7 +2,7 @@
 title: "Fantasy Study 2 Analyses"
 author: "Aki Gormezano and Jason Burns"
 date: "08.15.2022"
-output: html_document
+output: github_document
 ---
 
 ## libraries
