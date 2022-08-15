@@ -1,0 +1,666 @@
+---
+title: "Fantasy Study 2 Analyses"
+author: "Aki Gormezano and Jason Burns"
+date: "08.15.2022"
+output: html_document
+---
+
+## libraries
+```{r}
+library(tidyverse)
+library(haven)
+library(readxl)
+```
+
+## data
+```{r}
+#Prolific participants with usable data
+prolific_key <- 
+"Fantasy Prolific_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 599) %>% 
+  filter(
+    `Both Fantasies?` == "Y" &
+    `Sensical Answers?` == "Y" &
+    `Joke Answers?` == "N" #&
+    #`Gender/Sex` != "un"
+  ) %>% 
+  rename(
+    ID = `Prolific ID`,
+    GenderSex = `Gender/Sex`,
+    SexualOrientation = `Sexual Orientation`
+    ) %>% 
+  select(ID, GenderSex, SexualOrientation)
+
+#Community participants with usable data
+community_key <- 
+"Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  filter(
+    `Both Fantasies?` == "Y" &
+    `Sensical Answers?` == "Y" &
+    `Joke Answers?` == "N" #&
+    #`Gender/Sex` != "un"
+  ) %>% 
+  rename(
+    GenderSex = `Gender/Sex`,
+    SexualOrientation = `Sexual Orientation`
+    ) %>% 
+  select(ID, GenderSex, SexualOrientation)
+
+full_key <- full_join(
+  x = prolific_key,
+  y = community_key,
+  by = colnames(prolific_key)
+) %>% 
+  rename_with(
+    .cols = c("GenderSex","SexualOrientation"),
+    .fn = ~paste(.,"_MajMin",sep="")
+    )
+```
+
+```{r}
+#prolific background data
+col_names <- names(read_csv("FanS2 Prolific Background Data.csv", n_max = 0)) #pre-defines the column names
+prolific_background_data <- "FanS2 Prolific Background Data.csv" %>% read_csv(col_names = col_names, skip = 3) #skips the header + those two useless rows. 
+
+#community background data
+col_names <- names(read_csv("FanS2 Community Background Data.csv", n_max = 0)) #pre-defines the column names
+community_background_data <- "FanS2 Community Background Data.csv" %>% read_csv(col_names = col_names, skip = 3) #skips the header + those two useless rows. 
+```
+
+```{r}
+#prolific main data 
+col_names <- names(read_csv("FanS2 Prolific Main Data.csv", n_max = 0)) #pre-defines the column names
+prolific_main_data <- "FanS2 Prolific Main Data.csv" %>% read_csv(col_names = col_names, skip = 3)  #skips the header + those two useless rows. 
+
+#community main data
+col_names <- names(read_csv("FanS2 Community Main Data.csv", n_max = 0)) #pre-defines the column names
+community_main_data <- "FanS2 Community Main Data.csv" %>% read_csv(col_names = col_names, skip = 3)  #skips the header + those two useless rows. 
+
+```
+
+```{r}
+#main full
+main_data <- full_join(
+  x = prolific_main_data %>% rename(ID = PROLIFIC_PID),
+  y = community_main_data %>% rename(ID = PID)
+  ) %>% 
+  rename_with(
+    .cols =  c(
+      "StartDate", "EndDate", "Status", "Progress", "Duration (in seconds)", "Finished", "RecordedDate", "ResponseId","DistributionChannel", "UserLanguage", "consent", "consentquotes", "birthyear", "times", "noread", "noreadwhich", "jokes", "jokeswhich", "howhear", "Checked"
+      ),
+    .fn = ~paste("MAIN_",.,sep="")
+    )
+```
+
+```{r}
+#background_full
+background_data <- full_join(
+  x = prolific_background_data %>% rename(ID = PROLIFIC_PID),
+  y = community_background_data %>% rename(ID = PID)
+  ) %>% 
+  rename_with(
+    .cols =  c(
+"StartDate", "EndDate", "Status", "Progress", "Duration (in seconds)", "Finished", "RecordedDate", "ResponseId","DistributionChannel", "UserLanguage","consent","Comments1", "comments2", "BirthYear", "SurveyTimes", "Attention", "Attention_TEXT", "Joking", "Joking_Text", "Emotion", "maininterest", "Checked"
+      ),
+    .fn = ~paste("BACKGROUND_",.,sep="")
+    )
+
+```
+
+```{r}
+usable_data <- 
+  left_join(
+    x = full_key,
+    y = background_data,
+    by = "ID"
+    ) %>% 
+  left_join(
+    x = .,
+    y = main_data,
+    by = "ID"
+  )
+```
+
+# Data sets for raffle winners
+
+## Background raffle winners (pre-cutoff)
+
+```{r}
+#community background pre-cutoff pool
+Pre_BackgroundRaffle_Pool <- "Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  mutate(
+    row = seq(from = 1, to = nrow(.), by = 1)
+  ) %>% 
+  relocate(row, .before = Email) %>% 
+  filter(
+    row <=1410,
+    `Payment Eligible` == "Y" 
+    ) %>% 
+  select(
+    ID,
+    Email
+  )
+
+```
+
+```{r}
+
+#total number of winners
+
+#total number of eligible participants divided by 14
+winners.raw <- nrow(Pre_BackgroundRaffle_Pool)/10
+
+#total number of winners to choose
+
+winners.choose <- ceiling(winners.raw)
+
+#print message
+message("there will be ", winners.choose, " background pre-cutoff winners")
+
+```
+
+```{r}
+#community background pre-cutoff winners
+set.seed(1235)
+Pre_BackgroundRaffle_Winners <- sample(
+  x = Pre_BackgroundRaffle_Pool$ID, #the list of email addresses
+  size = winners.choose, #the number of winners we decided on
+  replace = FALSE #sample without replacement so the same person doesn't win twice. 
+  )
+
+for (i in 1:winners.choose){
+  message("winner number ", i, " is ", Pre_BackgroundRaffle_Winners[i])
+}
+
+```
+
+```{r}
+# Round 1
+col_names <- names(read_csv("FanS2 Community Background Payment Info.csv", n_max = 0)) #pre-defines the column names
+payment_info <- "FanS2 Community Background Payment Info.csv" %>% read_csv(col_names = col_names, skip = 3) #skips the header + those two useless rows. 
+
+payment_info <- payment_info %>% 
+  rename(ID = PID) %>% 
+  mutate(
+    contact = case_when(
+      country_which == "USA" ~ `payment_contact...16`,
+      country_which == "Canada" ~ `payment_contact...14`
+    ),
+    preference = case_when(
+      country_which == "USA" ~ USpayment_type,
+      country_which == "Canada" ~ CApayment_type
+    )
+  ) %>% 
+  select(
+    ID, 
+    country_which, 
+    contact,
+    preference
+    )
+
+tibble(ID = Pre_BackgroundRaffle_Winners) %>% 
+  left_join(
+    x = .,
+    y = payment_info,
+    by = "ID"
+    ) %>% 
+  write_csv(
+    file = "FanS2 Pre-cutoff background raffle winners R1.csv"
+    )
+
+Pre_BackgroundRaffle_Winners_R1 <- 
+  "FanS2 Pre-cutoff background raffle winners revised.csv" %>% 
+  read_csv() %>% 
+  filter(!is.na(preference)) 
+```
+
+```{r}
+#round 2 pool
+
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
+Pre_BackgroundRaffle_Pool_R2 <- "Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  mutate(
+    row = seq(from = 1, to = nrow(.), by = 1)
+  ) %>% 
+  relocate(row, .before = Email) %>% 
+  filter(
+    row <=1410,
+    `Payment Eligible` == "Y",
+    ID %!in% Pre_BackgroundRaffle_Winners
+    ) %>% 
+  select(
+    ID,
+    Email
+  )
+
+```
+
+```{r}
+#total number of winners for round 2
+
+#total number of eligible participants divided by 14
+winners.raw <- nrow(Pre_BackgroundRaffle_Pool)/10 
+
+#total number of winners to choose
+
+winners.choose <- ceiling(winners.raw) - nrow(Pre_BackgroundRaffle_Winners_R1)
+
+#print message
+message("there will be ", winners.choose, " round 2 background pre-cutoff winners")
+
+```
+
+```{r}
+#round 2 draw
+set.seed(54321)
+Pre_BackgroundRaffle_Winners_R2 <- sample(
+  x = Pre_BackgroundRaffle_Pool_R2$ID, #the list of email addresses
+  size = winners.choose, #the number of winners we decided on
+  replace = FALSE #sample without replacement so the same person doesn't win twice. 
+  )
+
+for (i in 1:winners.choose){
+  message("R2 winner number ", i, " is ", Pre_BackgroundRaffle_Winners_R2[i])
+}
+
+```
+
+```{r}
+#add R2 payment info
+tibble(ID = Pre_BackgroundRaffle_Winners_R2) %>% 
+  left_join(
+    x = .,
+    y = payment_info,
+    by = "ID"
+    ) %>% 
+  write_csv(
+    file = "FanS2 Pre-cutoff background raffle winners R2.csv"
+    )
+
+Pre_BackgroundRaffle_Winners_R1_R2 <-
+  Pre_BackgroundRaffle_Winners_R1 %>% 
+  full_join(
+    x = .,
+    y = "FanS2 Pre-cutoff background raffle winners R2 revised.csv" %>% 
+      read_csv() %>% 
+      filter(!is.na(preference)) 
+    )
+
+```
+
+```{r}
+#round 3 pool
+
+Pre_BackgroundRaffle_Pool_R3 <- "Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  mutate(
+    row = seq(from = 1, to = nrow(.), by = 1)
+  ) %>% 
+  relocate(row, .before = Email) %>% 
+  filter(
+    row <=1410,
+    `Payment Eligible` == "Y",
+    ID %!in% Pre_BackgroundRaffle_Winners,
+    ID %!in% Pre_BackgroundRaffle_Winners_R2
+    ) %>% 
+  select(
+    ID,
+    Email
+  )
+
+```
+
+```{r}
+#total number of winners for round 3
+
+#total number of eligible participants divided by 14
+winners.raw <- nrow(Pre_BackgroundRaffle_Pool)/10 
+
+#total number of winners to choose
+
+winners.choose <- ceiling(winners.raw) - nrow(Pre_BackgroundRaffle_Winners_R1_R2)
+
+#print message
+message("there will be ", winners.choose, " 'round 3' background pre-cutoff winners")
+
+```
+
+```{r}
+#round 3 draw
+set.seed(6521)
+Pre_BackgroundRaffle_Winners_R3 <- sample(
+  x = Pre_BackgroundRaffle_Pool_R3$ID, #the list of email addresses
+  size = winners.choose, #the number of winners we decided on
+  replace = FALSE #sample without replacement so the same person doesn't win twice. 
+  )
+
+for (i in 1:winners.choose){
+  message("R3 winner number ", i, " is ", Pre_BackgroundRaffle_Winners_R3[i])
+}
+
+```
+
+```{r}
+#add R3 payment info
+Pre_BackgroundRaffle_Winners_R3 <- tibble(ID = Pre_BackgroundRaffle_Winners_R3) %>% 
+  left_join(
+    x = .,
+    y = payment_info,
+    by = "ID"
+    )
+
+Pre_BackgroundRaffle_Winners_R1_R2_R3 <- Pre_BackgroundRaffle_Winners_R1_R2 %>% 
+  full_join(
+    x = .,
+    y = Pre_BackgroundRaffle_Winners_R3,
+    by = c("ID", "country_which", "contact", "preference")
+    ) %>% 
+  arrange(
+    country_which, preference, ID
+    ) %>% 
+  relocate(
+    preference, .before = contact
+  ) 
+
+Pre_BackgroundRaffle_Winners_R1_R2_R3 %>% 
+  write_csv(
+    file = "FanS2 Pre-cutoff background raffle winners FULL.csv"
+    )
+
+Pre_BackgroundRaffle_Winners_R1_R2_R3 %>% filter(preference == "Amazon.ca gift card")
+```
+
+## Background raffle winners (post-cutoff)
+
+```{r}
+#community background post-cutoff pool
+Post_BackgroundRaffle_Pool <- "Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  mutate(
+    row = seq(from = 1, to = nrow(.), by = 1)
+  ) %>% 
+  relocate(row, .before = Email) %>% 
+  filter(
+    row > 1410,
+    `Payment Eligible` == "Y" 
+    ) %>% 
+  select(
+    ID,
+    Email
+  )
+```
+
+```{r}
+
+#total number of winners
+
+#total number of eligible participants divided by 14
+winners.raw <- 3
+
+#total number of winners to choose
+
+winners.choose <- ceiling(winners.raw)
+
+#print message
+message("there will be ", winners.choose, " background post-cutoff winners")
+
+```
+
+```{r}
+#community background post-cutoff winners and alternates
+set.seed(12356)
+Post_BackgroundRaffle_Winners <- sample(
+  x = Post_BackgroundRaffle_Pool$ID, #the list of email addresses
+  size = winners.choose, #the number of winners we decided on
+  replace = FALSE #sample without replacement so the same person doesn't win twice. 
+  )
+
+for (i in 1:winners.choose){
+  message("winner number ", i, " is ", Post_BackgroundRaffle_Winners[i])
+}
+
+tibble(winners = Post_BackgroundRaffle_Winners) %>% 
+  write_csv(
+    file = "FanS2 Post-cutoff background raffle winners.csv"
+    )
+
+```
+
+## Main study raffle winners (post-cutoff)
+
+```{r}
+#Main post-cutoff raffle pool
+Post_MainRaffle_Pool <- "Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  mutate(
+    row = seq(from = 1, to = nrow(.), by = 1)
+  ) %>% 
+  relocate(row, .before = Email) %>% 
+  filter(
+    row > 1410,
+    `Sensical Answers?` == "Y"
+    ) %>% 
+  select(
+    ID,
+    Email
+  )
+```
+
+```{r}
+
+#total number of winners
+
+#total number of eligible participants divided by 14
+winners.raw <- 3
+
+#total number of winners to choose
+
+winners.choose <- ceiling(winners.raw)
+
+#print message
+message("there will be ", winners.choose, " main study post-cutoff winners")
+
+```
+
+```{r}
+#community background post-cutoff winners and alternates
+set.seed(12357)
+Post_MainRaffle_Winners <- sample(
+  x = Post_MainRaffle_Pool$Email, #the list of email addresses
+  size = winners.choose, #the number of winners we decided on
+  replace = FALSE #sample without replacement so the same person doesn't win twice. 
+  )
+
+for (i in 1:winners.choose){
+  message("winner number ", i, " is ", Post_MainRaffle_Winners[i])
+}
+
+tibble(winners = Post_MainRaffle_Winners) %>% 
+  write_csv(
+    file = "FanS2 Post-cutoff Main raffle winners.csv"
+    )
+
+```
+
+# Demographic Coding
+
+## Currency, Residence, Study Source
+```{r}
+usable_data %>% 
+  select(ID, Currency, Residence, `Study Source`) %>% 
+  write_csv(file = "FanS2 Race Currency Residency Study Source Coding Ella.csv")
+
+```
+
+## Partner Number
+
+```{r}
+#PartnerNumber
+
+usable_data %>% 
+  select(ID, PartnerNumber) %>% 
+  write_csv(file = "FanS2 Partner Number Coding Katya.csv")
+
+```
+
+## Relationship Status
+
+```{r}
+
+usable_data %>% 
+  select(ID, Relstatusbutton_1, RelStatDescribe, relnumberdescribe, relapproach) %>% 
+  write_csv(file = "FanS2 Relationship Status and Approach Coding.csv")
+
+usable_data %>% 
+  select(ID, sexapproach) %>% 
+  arrange(ID) %>% 
+  write_csv(file = "FanS2 Sexual Relationship Approach.csv")
+
+```
+
+## Disabilities
+```{r}
+#Disability_TEXT
+usable_data %>% 
+  select(ID, Diability_TEXT) %>% 
+  filter(!is.na(Diability_TEXT)) %>% 
+  write_csv(file= "FanS2 Disabilities Coding.csv")
+```
+
+## Participant Gender
+```{r}
+usable_data %>% 
+  select(ID, ParticipantGender, GenderSex_MajMin, TransCisCategory, TransCisCategory_3_TEXT, TransCisCategory_4_TEXT, BinaryCategory, BinaryCategory_3_TEXT, BinaryCategory_4_TEXT) %>% 
+  write_csv(file = "FanS2 GenderSex Coding Bella.csv")
+```
+
+## Sexual Identity/Orientation
+```{r}
+usable_data %>% 
+  select(ID, SexIdentity) %>% 
+  write_csv(file = "FanS2 Sexual Identity Orientation Coding Bianca.csv")
+```
+## Race/Ethnicity
+
+```{r}
+usable_data %>%
+  select(ID, RaceEthnicity) %>% 
+  write_csv(file = "FanS2 Race Ethnicity Coding Bianca.csv")
+
+race_eth_coded <- "FanS2 Race Ethnicity Coding Bianca.xlsx" %>% read_excel(sheet = 1)
+
+race_eth_coded <- race_eth_coded %>% 
+  mutate(
+    RaceEth_coded = recode(
+      Bianca,
+      WHI = "white",
+      MLR = "Multiracial",
+      WHJ = "Jewish, white",
+      HLX = "Hispanic/Latinx",
+      SAS = "South Asian",
+      SEA = "Southeast Asian",
+      ING = "Indigenous/First Nations/Native American/Pacific Islander",
+      ASI = "Asian/Asian-American/Asian-Canadian",
+      PAI = "Indigenous/First Nations/Native American/Pacific Islander",
+      BLA = "Black",
+      WHL = "Hispanic/Latinx, white",
+      WME = "white, Middle Eastern",
+      MEA = "Middle Eastern",
+      AAC = "Asian/Asian-American/Asian-Canadian",
+      JEW = "Jewish",
+      WIN = "Indigenous, white"
+    )
+  ) %>% select(ID, RaceEth_coded)
+
+
+usable_data <- left_join(usable_data, race_eth_coded, by = "ID")
+```
+
+## Religion
+
+```{r}
+usable_data %>% 
+  select(ID, Religion) %>% 
+  write_csv(file = "FanS2 Religion Coding Jada.csv")
+
+religion_coded <- "FanS2 Religion Coding Jada.xlsx" %>% read_excel(sheet = 1)
+
+religion_coded <- religion_coded %>% 
+  mutate(
+    religion_coded = recode(
+      Jada,
+        AGN = "Agnostic/Agnostic Atheist",
+        AGA = "Agnostic/Agnostic Atheist",
+        SPR = "Spiritual/Spiritual, Not Religious",
+        SNR = "Spiritual/Spiritual, Not Religious",
+        ANG = "Christian",
+        BAP = "Christian",
+        CAT = "Christian",
+        CTC = "Christian",
+        CHR = "Christian",
+        NPC = "Christian",
+        CRO = "Christian",
+        CRE = "Christian",
+        NDC = "Christian",
+        EPI = "Christian",
+        LUT = "Christian",
+        MRM = "Christian",
+        NAZ = "Christian",
+        NOD = "Christian",
+        PRS = "Christian",
+        PRT = "Christian",
+        RCT = "Christian",
+        SDA = "Christian",
+        APA = "Not Applicable/Prefer not to Answer",
+        `NA` = "Not Applicable/Prefer not to Answer",
+        ANM = "Animist",
+        BUD = "Buddhist/Buddhist, Atheist",
+        CRW = "Circle Worship",
+        DAO = "Daoist",
+        HND = "Hindu",
+        INS = "Indigenous Spiritual",
+        ISL = "Muslim",
+        JEJ = "Jewish/Jewish, Atheist",
+        MIX = "Multiple Religions",
+        NOR = "Atheist/None/Areligious/Nonreligious",
+        PAG = "Pagan/Wicca",
+        SAT = "Satanic",
+        SHN = "Shinto",
+        SKH = "Sikh",
+        TAO = "Taoist",
+        TEN = "Tenrikyo",
+        UNI = "Unitarian Universalist",
+        WCA = "Pagan/Wicca"     
+    )
+  ) %>% select(ID, religion_coded)
+
+usable_data <- left_join(usable_data, religion_coded, by = "ID")
+
+```
+
+## Past partner genders
+```{r}
+usable_data %>% 
+  select(ID, PartnerGenders) %>% 
+  write_csv(file = "FanS2 partner genders Coding Katya.csv")
+```
+
+## Current partner gender
+```{r}
+usable_data %>% 
+  select(ID, partnergender) %>% 
+  write_csv(file = "FanS2 current partner gender Coding Sara.csv")
+```
+
+## Fantasy Target
+
+```{r}
+usable_data %>% 
+  select(ID, pfan.who, sfan.who) %>% 
+  write_csv(file = "FanS2 fantasy target coding.csv")
+```
+
