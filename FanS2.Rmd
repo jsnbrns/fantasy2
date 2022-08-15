@@ -665,16 +665,48 @@ usable_data %>%
   write_csv(file = "FanS2 fantasy target coding.csv")
 ```
 
-# Set up for EFAs 
+# Factor Structure for the Fantasy Checklist
+
+- Data set to work from: `usable_data`
+- Fantasy checklist items: 
+    - `sfan.checklist_#` (1 through 50; e.g., `sfan.checklist_1`)
+    - `pfan.checklist_#` 
+
+## Missingness
+
+**Note for Jay:** your goal with junk is to find out how much missing data we have for each fantasy checklist item. 
+
+```{r}
+## Getting the data
+p_checklist<-usable_data %>%  
+  select(c(110:159)) # Selected only the partnered fantasy checklist 
+
+s_checklist<-usable_data %>%  
+  select(c(173:222)) # Selected only the solitary fantasy checklist 
+
+# Partnered fantasy, count of all NAs
+p_checklist %>% summarise_all(~ sum(is.na(.)))
+
+p_checklist_no_na<-na.omit(p_checklist)
+
+length(p_checklist$pfan.checklist_1)-length(p_checklist_no_na$pfan.checklist_1) # If we remove all rows with NA, then we remove 64 participants
+
+# Solitary fantasy
+s_checklist %>% summarise_all(~ sum(is.na(.)))
+
+s_checklist_no_na<-na.omit(s_checklist)
+
+length(s_checklist$sfan.checklist_1)-length(s_checklist_no_na$sfan.checklist_1) # If we remove all rows with NA, then we remove 58 participants
+
+```
+
 ## Mardia's Test, partnered fantasy 
 
 I am running Mardia's test on the data. First, I'm going to grab a subset of the data (only the partnered fantasy checklist). Then I will run the actual test. 
 
 ```{r}
-p_checklist<-usable_data %>%  
-  select(c(110:159)) # Selected only the partnered fantasy checklist 
-
 mardia(p_checklist, na.rm = T)
+
 ```
 
 These results suggest that this data is non-normal, so I will calculate polychoric correlation matrices. 
@@ -684,9 +716,6 @@ These results suggest that this data is non-normal, so I will calculate polychor
 I'm rerunning the same analysis, but using the solitary fantasy.
 
 ```{r}
-s_checklist<-usable_data %>%  
-  select(c(173:222)) # Selected only the solitary fantasy checklist 
-
 mardia(s_checklist, na.rm = T)
 ```
 
@@ -694,11 +723,11 @@ These results show that the solitary checklist is also non-normal (especially th
 
 ## Calculating polychoric correlation matrices
 
-Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package. 
+Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package. I've decided to use the matrices that do not have NA values (na.omit), so the sample size overall is lower.
 
 ```{r}
 # Partnered fantasy
-p_check_poly<-polychoric(p_checklist, smooth = T, # Smoothing the data
+p_check_poly<-polychoric(p_checklist_no_na, smooth = T, # Smoothing the data
                          global = F, # running the analysis using the local values
                          na.rm = T # removing the missing data
                          )
@@ -706,10 +735,27 @@ p_check_poly<-polychoric(p_checklist, smooth = T, # Smoothing the data
 p_check_matrix<-p_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
 
 # Solitary fantasy
-s_check_poly<-polychoric(s_checklist, smooth = T, # Smoothing the data
+s_check_poly<-polychoric(s_checklist_no_na, smooth = T, # Smoothing the data
                          global = F, # running the analysis using the local values
                          na.rm = T # removing the missing data
                          )
 
 s_check_matrix<-s_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
+```
+
+# Parallel analysis
+
+## Partnered fantasy
+
+Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package. 
+
+```{r}
+# Partnered fantasy
+fa.parallel(p_check_matrix, n.obs=499, fm = "uls", n.iter = 20, cor = "poly")
+```
+## Solitary fantasy
+
+```{r}
+# Partnered fantasy
+fa.parallel(s_check_matrix, n.obs=505, fm = "uls", n.iter = 20, cor = "poly")
 ```
