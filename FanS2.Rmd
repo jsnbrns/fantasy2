@@ -864,7 +864,9 @@ fa.parallel(s_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly
 
 ## Partnered fantasy 
 
-Making the models (code stolen from the internet).
+### Making the models 
+
+This code was based on code found [here](https://solomonkurz.netlify.app/post/2021-05-11-yes-you-can-fit-an-exploratory-factor-analysis-with-lavaan/). 
 
 ```{r}
 f1 <- '
@@ -956,9 +958,49 @@ efa("efa")*f6=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.ch
                   pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
                   pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
      ' 
+
+f7 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+
+f8 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
 ```
 
-Doing the EFAs
+### Doing the EFAs
+
 ```{r}
 
 efa_f1 <- 
@@ -1029,6 +1071,27 @@ efa_f6 <-
       control=list(iter.max=1000)
       )
 
+efa_f7 <- 
+    cfa(model = f7,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f8 <- 
+    cfa(model = f8,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
 ```
 
 Wrangling and summarizing. 
@@ -1047,10 +1110,258 @@ rbind(
   fitmeasures(efa_f3, fit_measures_robust),
   fitmeasures(efa_f4, fit_measures_robust),
   fitmeasures(efa_f5, fit_measures_robust),
-  fitmeasures(efa_f6, fit_measures_robust)) %>% 
+  fitmeasures(efa_f6, fit_measures_robust),
+  fitmeasures(efa_f7, fit_measures_robust),
+  fitmeasures(efa_f8, fit_measures_robust)) %>% 
   # wrangle
-  data.frame() %>% 
-  mutate(chisq  = round(chisq, digits = 0),
-         df            = as.integer(df)) %>% 
-  mutate_at(vars(tli:rmsea.ci.upper), ~round(., digits =  3))
+  data.frame()
+```
+
+## Solitary fantasy 
+
+### Making the models 
+
+This code was based on code found [here](https://solomonkurz.netlify.app/post/2021-05-11-yes-you-can-fit-an-exploratory-factor-analysis-with-lavaan/). 
+
+```{r}
+s1 <- '
+efa("efa")*f1 =~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '   
+
+s2 <- '
+efa("efa")*f1+
+efa("efa")*f2=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '   
+s3 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '  
+s4 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '  
+
+s5 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '  
+s6 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     ' 
+
+s7 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     ' 
+
+s8 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     ' 
+```
+
+### Doing the EFAs
+
+```{r}
+
+efa_s1 <- 
+  cfa(model = s1, # specifying the model
+      sample.cov = s_check_poly_lavaan, # using the polychoric matrix
+      rotation = "geomin", # specifying the rotation
+      estimator = "ULS", # specifying the estimator
+      ordered = TRUE, # not sure if I need to have this
+      missing="pairwise", # doing pairwise deletion
+      sample.nobs = 537, # the number of observations
+      control=list(iter.max=1000) # the maximum amount of iterations
+      )
+
+# Repeating the code for the other models
+efa_s2 <- 
+  cfa(model = s2,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+
+efa_s3 <- 
+   cfa(model = s3,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s4 <- 
+    cfa(model = s4,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s5 <- 
+   cfa(model = s5,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s6 <- 
+    cfa(model = s6,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s7 <- 
+    cfa(model = s7,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s8 <- 
+    cfa(model = s8,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+```
+
+Wrangling and summarizing. 
+
+```{r}
+# collect them for each model
+rbind(
+  fitmeasures(efa_s1, fit_measures_robust),
+  fitmeasures(efa_s2, fit_measures_robust),
+  fitmeasures(efa_s3, fit_measures_robust),
+  fitmeasures(efa_s4, fit_measures_robust),
+  fitmeasures(efa_s5, fit_measures_robust),
+  fitmeasures(efa_s6, fit_measures_robust),
+  fitmeasures(efa_s7, fit_measures_robust),
+  fitmeasures(efa_s8, fit_measures_robust)) %>% 
+  # wrangle
+  data.frame()
 ```
