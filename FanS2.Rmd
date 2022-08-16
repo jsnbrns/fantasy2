@@ -859,3 +859,198 @@ fa.parallel(p_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly
 # Partnered fantasy
 fa.parallel(s_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly")
 ```
+
+# Running EFAs 
+
+## Partnered fantasy 
+
+Making the models (code stolen from the internet).
+
+```{r}
+f1 <- '
+efa("efa")*f1 =~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '   
+
+f2 <- '
+efa("efa")*f1+
+efa("efa")*f2=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '   
+f3 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+f4 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+
+f5 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+f6 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+```
+
+Doing the EFAs
+```{r}
+
+efa_f1 <- 
+  cfa(model = f1, # specifying the model
+      sample.cov = p_check_poly_lavaan, # using the polychoric matrix
+      rotation = "geomin", # specifying the rotation
+      estimator = "ULS", # specifying the estimator
+      ordered = TRUE, # not sure if I need to have this
+      missing="pairwise", # doing pairwise deletion
+      sample.nobs = 537, # the number of observations
+      control=list(iter.max=1000) # the maximum amount of iterations
+      )
+
+# Repeating the code for the other models
+efa_f2 <- 
+  cfa(model = f2,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+
+efa_f3 <- 
+   cfa(model = f3,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f4 <- 
+    cfa(model = f4,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f5 <- 
+   cfa(model = f5,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f6 <- 
+    cfa(model = f6,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+```
+
+Wrangling and summarizing. 
+
+```{r}
+
+# define the fit measures
+fit_measures_robust <- c("chisq", "df", "tli",
+                         "cfi", "rmsea", "rmsea.ci.lower","rmsea.ci.upper")
+
+
+# collect them for each model
+rbind(
+  fitmeasures(efa_f1, fit_measures_robust),
+  fitmeasures(efa_f2, fit_measures_robust),
+  fitmeasures(efa_f3, fit_measures_robust),
+  fitmeasures(efa_f4, fit_measures_robust),
+  fitmeasures(efa_f5, fit_measures_robust),
+  fitmeasures(efa_f6, fit_measures_robust)) %>% 
+  # wrangle
+  data.frame() %>% 
+  mutate(chisq  = round(chisq, digits = 0),
+         df            = as.integer(df)) %>% 
+  mutate_at(vars(tli:rmsea.ci.upper), ~round(., digits =  3))
+```
