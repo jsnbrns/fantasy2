@@ -12,6 +12,7 @@ library(haven)
 library(readxl)
 library(psych)
 library(lavaan)
+library(ggplot2)
 ```
 
 ## data
@@ -882,7 +883,8 @@ efa("efa")*f1 =~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.c
 
 f2 <- '
 efa("efa")*f1+
-efa("efa")*f2=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+efa("efa")*f2=~ pfan.checklist_1 + pfan.
+checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
                   pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
                   pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
                   pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
@@ -946,6 +948,87 @@ efa("efa")*f3+
 efa("efa")*f4+
 efa("efa")*f5+
 efa("efa")*f6=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '
+
+f7 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+
+f8 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+
+f9 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8+
+efa("efa")*f9=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+f10 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8+
+efa("efa")*f9+
+efa("efa")*f10=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
                   pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
                   pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
                   pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
@@ -1029,6 +1112,49 @@ efa_f6 <-
       control=list(iter.max=1000)
       )
 
+efa_f7 <- 
+    cfa(model = f7,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f8 <- 
+    cfa(model = f8,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f9 <- 
+    cfa(model = f9,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_f10 <- 
+    cfa(model = f10,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
 ```
 
 Wrangling and summarizing. 
@@ -1047,10 +1173,83 @@ rbind(
   fitmeasures(efa_f3, fit_measures_robust),
   fitmeasures(efa_f4, fit_measures_robust),
   fitmeasures(efa_f5, fit_measures_robust),
-  fitmeasures(efa_f6, fit_measures_robust)) %>% 
+  fitmeasures(efa_f6, fit_measures_robust),
+  fitmeasures(efa_f7, fit_measures_robust),
+  fitmeasures(efa_f8, fit_measures_robust),
+  fitmeasures(efa_f9, fit_measures_robust),
+  fitmeasures(efa_f10, fit_measures_robust)) %>% 
   # wrangle
   data.frame() %>% 
   mutate(chisq  = round(chisq, digits = 0),
          df            = as.integer(df)) %>% 
   mutate_at(vars(tli:rmsea.ci.upper), ~round(., digits =  3))
+```
+
+```{r}
+loadings<-data.frame(inspect(efa_f3,what="std")$lambda)
+loadings$ID<-c(1:50)
+bad<- filter(loadings, f1<=0.4 &f2<=0.4 & f3 <= 0.4)
+
+f3_1 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_24 + pfan.checklist_25 +pfan.checklist_26 + 
+                  pfan.checklist_29 + pfan.checklist_30 + pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 +
+                  pfan.checklist_34 + pfan.checklist_35 + pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 +
+                  pfan.checklist_39 + pfan.checklist_40 + pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 +
+                  pfan.checklist_44 + pfan.checklist_45 +pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + 
+                  pfan.checklist_49 + pfan.checklist_50
+     '  
+efa_f3_1 <- 
+   cfa(model = f3_1,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+summary(efa_f3_1, fit.measures = TRUE, standardized=T)
+
+inspect(efa_f3_1,what="std")$lambda
+
+# wrangle
+standardizedsolution(efa_f3) %>% 
+  filter(op == "=~") %>% 
+  mutate(item  = str_remove(rhs, "pfan.checklist_") %>% as.double(),
+         factor = str_remove(lhs, "f")) %>% 
+  # plot
+  ggplot(aes(x = est.std, xmin = ci.lower, xmax = ci.upper, y = item)) +
+  annotate(geom = "rect",
+           xmin = -1, xmax = 1,
+           ymin = -Inf, ymax = Inf,
+           fill = "grey90") +
+  annotate(geom = "rect",
+           xmin = -0.7, xmax = 0.7,
+           ymin = -Inf, ymax = Inf,
+           fill = "grey93") +
+  annotate(geom = "rect",
+           xmin = -0.4, xmax = 0.4,
+           ymin = -Inf, ymax = Inf,
+           fill = "grey96") +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_pointrange(aes(alpha = abs(est.std) < 0.4),
+                  fatten = 5) +
+  geom_text(aes(label = item, color = abs(est.std) < 0.4),
+            size = 2) +
+  scale_color_manual(values = c("white", "transparent")) +
+  scale_alpha_manual(values = c(1, 1/3)) +
+  scale_x_continuous(expression(lambda[standardized]), 
+                     expand = c(0, 0), limits = c(-1, 1),
+                     breaks = c(-1, -0.7, -0.4, 0, 0.4, 0.7, 1),
+                     labels = c("-1", "-.7", "-.4", "0", ".4", ".7", "1")) +
+  scale_y_continuous(breaks = 1:50, sec.axis = sec_axis(~ . * 1, breaks = 1:50)) +
+  ggtitle("EFICA-P loadings for the 3-factor model") +
+  theme(legend.position = "none") +
+  facet_wrap(~ factor, labeller = label_both)
 ```
