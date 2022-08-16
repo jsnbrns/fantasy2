@@ -755,14 +755,19 @@ ggplot(full_checklists, aes(x=na))+
 
 table(full_checklists$na)
 ```
+## Removing the participants who have no data for one or both conditions
+```{r}
+p_checklist_clean<-p_checklist[-c(38,39,40,41,172,260,282,315,329,395,415,446,460,469,475,476,481,488,501,502,506,543,545,549,560,563), ]
 
+s_checklist_clean<-s_checklist[-c(38,39,40,41,172,260,282,315,329,395,415,446,460,469,475,476,481,488,501,502,506,543,545,549,560,563), ]
+```
 
 ## Mardia's Test, partnered fantasy 
 
 I am running Mardia's test on the data. First, I'm going to grab a subset of the data (only the partnered fantasy checklist). Then I will run the actual test. 
 
 ```{r}
-mardia(p_checklist, na.rm = T)
+mardia(p_checklist_clean, na.rm = T)
 ```
 
 These results suggest that this data is non-normal, so I will calculate polychoric correlation matrices. 
@@ -772,7 +777,7 @@ These results suggest that this data is non-normal, so I will calculate polychor
 I'm rerunning the same analysis, but using the solitary fantasy.
 
 ```{r}
-mardia(s_checklist, na.rm = T)
+mardia(s_checklist_clean, na.rm = T)
 ```
 
 These results show that the solitary checklist is also non-normal (especially the Q-Q plot).
@@ -783,46 +788,59 @@ Using the subsets I've created above, I will now create two polychoric correlati
 
 ```{r}
 # Partnered fantasy
-p_check_poly_psych<-polychoric(p_checklist, smooth = T, # Smoothing the data
-                         global = F, # running the analysis using the local values
-                         na.rm = T # removing the missing data
+p_check_poly_psych<-polychoric(p_checklist_clean,
+                               smooth = T, # Smoothing the data
+                             # global = F, # running the analysis using the local values
                          )
 
 p_check_matrix_psych<-p_check_poly_psych$rho # Selecting the rho values, so that we have a correlation matrix
 
 # Solitary fantasy
-s_check_poly_psych<-polychoric(s_checklist, smooth = T, # Smoothing the data
-                         global = F, # running the analysis using the local values
-                         na.rm = T # removing the missing data
+s_check_poly_psych<-polychoric(s_checklist_clean, 
+                               smooth = T, # Smoothing the data
+                        # global = F, # running the analysis using the local values
                          )
 
 s_check_matrix_psych<-s_check_poly_psych$rho # Selecting the rho values, so that we have a correlation matrix
 ```
+
 ## Calculating polychoric correlation matrices - Lavaan package
+
+Partnered fantasy
 ```{r}
-# Partnered fantasy
-p_check_poly_lavaan<-lavCor(p_checklist, ordered = names(p_checklist), # This tells it that the variables are ordinal
+p_check_poly_lavaan<-lavCor(p_checklist_clean, 
+                            ordered = colnames(p_checklist_clean), # This tells it that the variables are ordinal
                             missing = "pairwise", #This does pairwise deletion 
-                            output = "cor" #This outputs a correlation matrix
+                            output = "cor", #This outputs a correlation matrix
+                            cor.smooth=T
                             )
-#N
-563-24
-same_p<-p_check_poly_lavaan == p_check_matrix_psych
-length(same_p[same_p== TRUE])
-## The matrices are not the same
 
 
-# Solitary fantasy
-s_check_poly_lavaan<-lavCor(s_checklist, ordered = names(s_checklist), # This tells it that the variables are ordinal
+## The matrices are not the same, but they're close, and honestly, that's good enough
+
+part_values_psych<-p_check_matrix_psych[lower.tri(p_check_matrix_psych)]
+part_values_lavaan<-p_check_poly_lavaan[lower.tri(p_check_poly_lavaan)]
+same_p<-part_values_psych-part_values_lavaan
+mean(abs(same_p))
+
+range(abs(same_p))
+```
+
+Solitary fantasy
+```{r}
+s_check_poly_lavaan<-lavCor(s_checklist_clean, 
+                            ordered = colnames(s_checklist_clean), # This tells it that the variables are ordinal
                             missing = "pairwise", #This does pairwise deletion 
-                            output = "cor" #This outputs a correlation matrix
+                            output = "cor", #This outputs a correlation matrix
+                            cor.smooth=T
                             )
-same_s<-s_check_poly_lavaan == s_check_matrix_psych
-length(same_s[same_s== TRUE])
-## The matrices are not the same
 
-#N
-563-18
+sol_values_psych<-s_check_matrix_psych[lower.tri(s_check_matrix_psych)]
+sol_values_lavaan<-s_check_poly_lavaan[lower.tri(s_check_poly_lavaan)]
+same_s<-sol_values_psych-sol_values_lavaan
+mean(abs(same_s))
+
+range(abs(same_s))
 ```
 
 # Parallel analysis
@@ -833,174 +851,11 @@ Using the subsets I've created above, I will now create two polychoric correlati
 
 ```{r}
 # Partnered fantasy
-fa.parallel(p_check_poly_lavaan, n.obs=539, fm = "uls", n.iter = 20, cor = "poly")
+fa.parallel(p_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly")
 ```
 ## Solitary fantasy
 
 ```{r}
 # Partnered fantasy
-fa.parallel(s_check_poly_lavaan, n.obs=545, fm = "uls", n.iter = 20, cor = "poly")
-```
-
-# Running EFAs 
-
-## Partnered fantasy 
-```{r}
-f1 <- '
-efa("efa")*f1 =~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
-                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
-                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 + 
-                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 + 
-                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
-                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
-                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
-                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
-                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
-                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
-     '   
-
-f2 <- '
-efa("efa")*f1+
-efa("efa")*f2=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
-                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
-                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 + 
-                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 + 
-                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
-                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
-                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
-                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
-                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
-                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
-     '   
-f3 <- '
-efa("efa")*f1+
-efa("efa")*f2+
-efa("efa")*f3=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
-                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
-                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 + 
-                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 + 
-                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
-                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
-                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
-                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
-                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
-                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
-     '  
-f4 <- '
-efa("efa")*f1+
-efa("efa")*f2+
-efa("efa")*f3+
-efa("efa")*f4=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
-                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
-                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 + 
-                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 + 
-                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
-                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
-                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
-                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
-                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
-                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
-     '  
-
-f5 <- '
-efa("efa")*f1+
-efa("efa")*f2+
-efa("efa")*f3+
-efa("efa")*f4+
-efa("efa")*f5=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
-                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
-                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 + 
-                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 + 
-                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
-                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
-                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
-                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
-                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
-                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
-     '  
-f6 <- '
-efa("efa")*f1+
-efa("efa")*f2+
-efa("efa")*f3+
-efa("efa")*f4+
-efa("efa")*f5+
-efa("efa")*f6=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
-                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
-                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 + 
-                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 + 
-                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
-                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
-                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
-                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
-                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
-                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
-     ' 
-efa_f1 <- 
-  cfa(model = f1,
-      data = p_checklist,
-      rotation = "geomin",
-      estimator = "ULS",
-      ordered = TRUE,
-      missing="pairwise")
-
-efa_f2 <- 
-  cfa(model = f2,
-      data = p_checklist,
-      rotation = "geomin",
-      estimator = "ULS",
-      ordered = TRUE,
-      missing="pairwise")
-
-efa_f3 <- 
-  cfa(model = f3,
-      data = p_checklist,
-      rotation = "geomin",
-      estimator = "ULS",
-      ordered = TRUE,
-      missing="pairwise")
-
-efa_f4 <- 
-  cfa(model = f4,
-      data = p_checklist,
-      rotation = "geomin",
-      estimator = "ULS",
-      ordered = TRUE,
-      missing="pairwise")
-
-efa_f5 <- 
-  cfa(model = f5,
-      data = p_checklist,
-      rotation = "geomin",
-      estimator = "ULS",
-      ordered = TRUE,
-      missing="pairwise")
-
-efa_f6 <- 
-  cfa(model = f6,
-      data = p_checklist,
-      rotation = "geomin",
-      estimator = "ULS",
-      ordered = TRUE,
-      missing="pairwise")
-
-summary(efa_f6, fit.measures = TRUE, standardized=T)
-
-
-# define the fit measures
-fit_measures_robust <- c("chisq", "df", "pvalue", 
-                         "cfi", "rmsea", "rmsea.ci.lower","rmsea.ci.upper")
-# collect them for each model
-rbind(
-  fitmeasures(efa_f1, fit_measures_robust),
-  fitmeasures(efa_f2, fit_measures_robust),
-  fitmeasures(efa_f3, fit_measures_robust),
-  fitmeasures(efa_f4, fit_measures_robust),
-  fitmeasures(efa_f5, fit_measures_robust),
-  fitmeasures(efa_f6, fit_measures_robust)) %>% 
-  # wrangle
-  data.frame() %>% 
-  mutate(chisq  = round(chisq, digits = 0),
-         df            = as.integer(df),
-         pvalue = ifelse(pvalue == 0, "< .001", pvalue)) %>% 
-  mutate_at(vars(cfi:rmsea.ci.upper), ~round(., digits =  3))
+fa.parallel(s_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly")
 ```
