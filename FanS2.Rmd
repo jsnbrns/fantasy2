@@ -11,6 +11,7 @@ library(tidyverse)
 library(haven)
 library(readxl)
 library(psych)
+library(lavaan)
 ```
 
 ## data
@@ -776,26 +777,52 @@ mardia(s_checklist, na.rm = T)
 
 These results show that the solitary checklist is also non-normal (especially the Q-Q plot).
 
-## Calculating polychoric correlation matrices
+## Calculating polychoric correlation matrices - psych package
 
-Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package.
+Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package. I couldn't figure out what they were doing for missing data. 
 
 ```{r}
 # Partnered fantasy
-p_check_poly<-polychoric(p_checklist, smooth = T, # Smoothing the data
+p_check_poly_psych<-polychoric(p_checklist, smooth = T, # Smoothing the data
                          global = F, # running the analysis using the local values
                          na.rm = T # removing the missing data
                          )
 
-p_check_matrix<-p_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
+p_check_matrix_psych<-p_check_poly_psych$rho # Selecting the rho values, so that we have a correlation matrix
 
 # Solitary fantasy
-s_check_poly<-polychoric(s_checklist, smooth = T, # Smoothing the data
+s_check_poly_psych<-polychoric(s_checklist, smooth = T, # Smoothing the data
                          global = F, # running the analysis using the local values
                          na.rm = T # removing the missing data
                          )
 
-s_check_matrix<-s_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
+s_check_matrix_psych<-s_check_poly_psych$rho # Selecting the rho values, so that we have a correlation matrix
+```
+## Calculating polychoric correlation matrices - Lavaan package
+```{r}
+# Partnered fantasy
+p_check_poly_lavaan<-lavCor(p_checklist, ordered = names(p_checklist), # This tells it that the variables are ordinal
+                            missing = "pairwise", #This does pairwise deletion 
+                            output = "cor" #This outputs a correlation matrix
+                            )
+#N
+563-24
+same_p<-p_check_poly_lavaan == p_check_matrix_psych
+length(same_p[same_p== TRUE])
+## The matrices are not the same
+
+
+# Solitary fantasy
+s_check_poly_lavaan<-lavCor(s_checklist, ordered = names(s_checklist), # This tells it that the variables are ordinal
+                            missing = "pairwise", #This does pairwise deletion 
+                            output = "cor" #This outputs a correlation matrix
+                            )
+same_s<-s_check_poly_lavaan == s_check_matrix_psych
+length(same_s[same_s== TRUE])
+## The matrices are not the same
+
+#N
+563-18
 ```
 
 # Parallel analysis
@@ -806,11 +833,11 @@ Using the subsets I've created above, I will now create two polychoric correlati
 
 ```{r}
 # Partnered fantasy
-#fa.parallel(p_check_matrix, n.obs=499, fm = "uls", n.iter = 20, cor = "poly")
+fa.parallel(p_check_poly_lavaan, n.obs=539, fm = "uls", n.iter = 20, cor = "poly")
 ```
 ## Solitary fantasy
 
 ```{r}
 # Partnered fantasy
-#fa.parallel(s_check_matrix, n.obs=505, fm = "uls", n.iter = 20, cor = "poly")
+fa.parallel(s_check_poly_lavaan, n.obs=545, fm = "uls", n.iter = 20, cor = "poly")
 ```
