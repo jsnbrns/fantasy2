@@ -679,26 +679,82 @@ usable_data %>%
 ```{r}
 ## Getting the data
 p_checklist<-usable_data %>%  
-  select(c(110:159)) # Selected only the partnered fantasy checklist 
+  select(c(110:159)) # Selected only the partnered fantasy checklist and ID
 
 s_checklist<-usable_data %>%  
-  select(c(173:222)) # Selected only the solitary fantasy checklist 
+  select(c(173:222)) # Selected only the solitary fantasy checklist and ID
 
 # Partnered fantasy, count of all NAs
-p_checklist %>% summarise_all(~ sum(is.na(.)))
+na.p<-p_checklist %>% 
+  summarise_all(~ sum(is.na(.))) %>% # Count of all the na per variable for partnered fantasy
+  pivot_longer(cols = starts_with("pfan")) # pivoting the data
+na.p$percent<-na.p$value/563*100 # making it a percent
 
-p_checklist_no_na<-na.omit(p_checklist)
-
-length(p_checklist$pfan.checklist_1)-length(p_checklist_no_na$pfan.checklist_1) # If we remove all rows with NA, then we remove 64 participants
-
-# Solitary fantasy
-s_checklist %>% summarise_all(~ sum(is.na(.)))
-
-s_checklist_no_na<-na.omit(s_checklist)
-
-length(s_checklist$sfan.checklist_1)-length(s_checklist_no_na$sfan.checklist_1) # If we remove all rows with NA, then we remove 58 participants
+p_checklist_participants<-p_checklist
+p_checklist_participants$p.na<-rowSums(is.na(p_checklist)) # Count of the na values per rows, added to data frame
+p_checklist_participants$p.na.percent<-p_checklist_participants$p.na/50*100 # Making it into a percent
 
 ```
+
+Histogram for missing data by variable for partnered fantasy
+```{r}
+ggplot(na.p, aes(x=percent))+
+  geom_histogram()
+
+table(na.p$value) # Table of values (I used the absolute count because it made more sense to look at)
+```
+
+Histogram for missing data by participant for partnered fantasy
+```{r}
+ggplot(p_checklist_participants, aes(x=p.na.percent))+
+  geom_histogram()
+
+table(p_checklist_participants$p.na.percent) # Table of values (I used the percentage of missing data per participant)
+```
+
+
+```{r}
+# Solitary fantasy
+na.s<-s_checklist %>% 
+  summarise_all(~ sum(is.na(.))) %>% # Count of all the na per variable for solitary fantasy
+  pivot_longer(cols = starts_with("sfan")) # pivoting the data
+na.s$percent<-na.s$value/563*100 # making it a percent
+
+s_checklist_participants<-s_checklist
+s_checklist_participants$s.na<-rowSums(is.na(s_checklist)) # Count of the na values per rows, added to data frame
+s_checklist_participants$s.na.percent<-s_checklist_participants$s.na/50*100 # Making it into a percent
+
+```
+
+Histogram for missing data by variable for solitary fantasy
+```{r}
+ggplot(na.s, aes(x=percent))+
+  geom_histogram()
+
+table(na.s$value) # Table of values (I used the absolute count because it made more sense to look at)
+```
+
+Histogram for missing data by participant for solitary fantasy
+```{r}
+ggplot(s_checklist_participants, aes(x=s.na.percent))+
+  geom_histogram()
+
+table(s_checklist_participants$s.na.percent) # Table of values (I used the percentage of missing data per participant)
+```
+
+Looking at both
+```{r}
+full_checklists<-usable_data %>%  
+  select(c(1,110:159,173:222)) # Gathering both checklists
+
+full_checklists$na<-rowSums(is.na(full_checklists)) # Counting all the NAs
+
+ggplot(full_checklists, aes(x=na))+
+  geom_histogram()
+
+table(full_checklists$na)
+```
+
 
 ## Mardia's Test, partnered fantasy 
 
@@ -706,7 +762,6 @@ I am running Mardia's test on the data. First, I'm going to grab a subset of the
 
 ```{r}
 mardia(p_checklist, na.rm = T)
-
 ```
 
 These results suggest that this data is non-normal, so I will calculate polychoric correlation matrices. 
@@ -723,11 +778,11 @@ These results show that the solitary checklist is also non-normal (especially th
 
 ## Calculating polychoric correlation matrices
 
-Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package. I've decided to use the matrices that do not have NA values (na.omit), so the sample size overall is lower.
+Using the subsets I've created above, I will now create two polychoric correlation matrices, using the polychoric function from the psych package.
 
 ```{r}
 # Partnered fantasy
-p_check_poly<-polychoric(p_checklist_no_na, smooth = T, # Smoothing the data
+p_check_poly<-polychoric(p_checklist, smooth = T, # Smoothing the data
                          global = F, # running the analysis using the local values
                          na.rm = T # removing the missing data
                          )
@@ -735,7 +790,7 @@ p_check_poly<-polychoric(p_checklist_no_na, smooth = T, # Smoothing the data
 p_check_matrix<-p_check_poly$rho # Selecting the rho values, so that we have a correlation matrix
 
 # Solitary fantasy
-s_check_poly<-polychoric(s_checklist_no_na, smooth = T, # Smoothing the data
+s_check_poly<-polychoric(s_checklist, smooth = T, # Smoothing the data
                          global = F, # running the analysis using the local values
                          na.rm = T # removing the missing data
                          )
@@ -751,11 +806,11 @@ Using the subsets I've created above, I will now create two polychoric correlati
 
 ```{r}
 # Partnered fantasy
-fa.parallel(p_check_matrix, n.obs=499, fm = "uls", n.iter = 20, cor = "poly")
+#fa.parallel(p_check_matrix, n.obs=499, fm = "uls", n.iter = 20, cor = "poly")
 ```
 ## Solitary fantasy
 
 ```{r}
 # Partnered fantasy
-fa.parallel(s_check_matrix, n.obs=505, fm = "uls", n.iter = 20, cor = "poly")
+#fa.parallel(s_check_matrix, n.obs=505, fm = "uls", n.iter = 20, cor = "poly")
 ```
