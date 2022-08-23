@@ -1,0 +1,1337 @@
+---
+output: html_document
+---
+
+```{r libraries, include = F}
+#libraries
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(stringr)
+library(dplyr)
+library(psych)
+library(haven)
+library(readxl)
+library(lavaan)
+library(ggplot2)
+```
+
+```{r functions, include = F}
+format_loading <- function(x) {
+    cell_spec(x, 
+              bold = ifelse(test = abs(x) >= .4, yes = T, no = F), 
+              color = ifelse(test = abs(x) >= .3, yes = "black", no = "grey")
+              )
+}  
+
+format <- function(x) {x %>%
+    mutate(
+  across(.cols = where(is.numeric),
+         .fns = ~ round(x = ., digits = 3)
+         ),
+  across(.cols = where(is.numeric) & -contains("D", ignore.case = F),
+         .fns = format_loading) #you might need a tilda before format_loading
+)
+}
+
+wrangle<-function(x) {x %>%
+    pivot_longer(-c("Checklist item","When I had this fantasy, I thought about…"),names_to="thing", values_to = "loading") %>% # gathering the variables
+  separate(thing, into = c("Factor", "Type"), sep = " ", fill = "left") %>% # Seperating the factor and condition 
+  pivot_wider(names_from ="Type", values_from =  "loading") %>%  # Adding columns for each condition
+  mutate(Diff = S - P,
+         Factor=gsub("f","",as.character(Factor))
+) %>% # Calculating the difference
+  pivot_longer(-c("Checklist item","When I had this fantasy, I thought about…", "Factor"),names_to ="Type", values_to = "value") %>% # Gathering the variables again
+  unite(colname, Type, Factor, sep = "") %>% # Uniting the factor and condition variables
+  pivot_wider(names_from = "colname", values_from = "value")
+}
+```
+
+```{r starting data, include = F}
+#Prolific participants with usable data
+prolific_key <- 
+"Fantasy Prolific_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 599) %>% 
+  filter(
+    `Both Fantasies?` == "Y" &
+    `Sensical Answers?` == "Y" &
+    `Joke Answers?` == "N" #&
+    #`Gender/Sex` != "un"
+  ) %>% 
+  rename(
+    ID = `Prolific ID`,
+    GenderSex = `Gender/Sex`,
+    SexualOrientation = `Sexual Orientation`
+    ) %>% 
+  select(ID, GenderSex, SexualOrientation)
+
+#Community participants with usable data
+community_key <- 
+"Fantasy Community_Contact_Spreadsheet.csv" %>% 
+  read_csv(n_max = 1822) %>% 
+  filter(
+    `Both Fantasies?` == "Y" &
+    `Sensical Answers?` == "Y" &
+    `Joke Answers?` == "N" #&
+    #`Gender/Sex` != "un"
+  ) %>% 
+  rename(
+    GenderSex = `Gender/Sex`,
+    SexualOrientation = `Sexual Orientation`
+    ) %>% 
+  select(ID, GenderSex, SexualOrientation)
+
+full_key <- full_join(
+  x = prolific_key,
+  y = community_key,
+  by = colnames(prolific_key)
+) %>% 
+  rename_with(
+    .cols = c("GenderSex","SexualOrientation"),
+    .fn = ~paste(.,"_MajMin",sep="")
+    )
+```
+
+```{r background data, include = F}
+#prolific background data
+col_names <- names(read_csv("FanS2 Prolific Background Data.csv", n_max = 0)) #pre-defines the column names
+prolific_background_data <- "FanS2 Prolific Background Data.csv" %>% read_csv(col_names = col_names, skip = 3) #skips the header + those two useless rows. 
+
+#community background data
+col_names <- names(read_csv("FanS2 Community Background Data.csv", n_max = 0)) #pre-defines the column names
+community_background_data <- "FanS2 Community Background Data.csv" %>% read_csv(col_names = col_names, skip = 3) #skips the header + those two useless rows. 
+```
+
+```{r main data, include = F}
+#prolific main data 
+col_names <- names(read_csv("FanS2 Prolific Main Data.csv", n_max = 0)) #pre-defines the column names
+prolific_main_data <- "FanS2 Prolific Main Data.csv" %>% read_csv(col_names = col_names, skip = 3)  #skips the header + those two useless rows. 
+
+#community main data
+col_names <- names(read_csv("FanS2 Community Main Data.csv", n_max = 0)) #pre-defines the column names
+community_main_data <- "FanS2 Community Main Data.csv" %>% read_csv(col_names = col_names, skip = 3)  #skips the header + those two useless rows. 
+```
+
+```{r data joining, include = F}
+#main full
+main_data <- full_join(
+  x = prolific_main_data %>% rename(ID = PROLIFIC_PID),
+  y = community_main_data %>% rename(ID = PID)
+  ) %>% 
+  rename_with(
+    .cols =  c(
+      "StartDate", "EndDate", "Status", "Progress", "Duration (in seconds)", "Finished", "RecordedDate", "ResponseId","DistributionChannel", "UserLanguage", "consent", "consentquotes", "birthyear", "times", "noread", "noreadwhich", "jokes", "jokeswhich", "howhear", "Checked"
+      ),
+    .fn = ~paste("MAIN_",.,sep="")
+    )
+
+#background_full
+background_data <- full_join(
+  x = prolific_background_data %>% rename(ID = PROLIFIC_PID),
+  y = community_background_data %>% rename(ID = PID)
+  ) %>% 
+  rename_with(
+    .cols =  c(
+"StartDate", "EndDate", "Status", "Progress", "Duration (in seconds)", "Finished", "RecordedDate", "ResponseId","DistributionChannel", "UserLanguage","consent","Comments1", "comments2", "BirthYear", "SurveyTimes", "Attention", "Attention_TEXT", "Joking", "Joking_Text", "Emotion", "maininterest", "Checked"
+      ),
+    .fn = ~paste("BACKGROUND_",.,sep="")
+    )
+
+usable_data <- 
+  left_join(
+    x = full_key,
+    y = background_data,
+    by = "ID"
+    ) %>% 
+  left_join(
+    x = .,
+    y = main_data,
+    by = "ID"
+  )
+
+race_eth_coded <- "FanS2 Race Ethnicity Coding Bianca.xlsx" %>% read_excel(sheet = 1)
+
+race_eth_coded <- race_eth_coded %>% 
+  mutate(
+    RaceEth_coded = recode(
+      Bianca,
+      WHI = "white",
+      MLR = "Multiracial",
+      WHJ = "Jewish, white",
+      HLX = "Hispanic/Latinx",
+      SAS = "South Asian",
+      SEA = "Southeast Asian",
+      ING = "Indigenous/First Nations/Native American/Pacific Islander",
+      ASI = "Asian/Asian-American/Asian-Canadian",
+      PAI = "Indigenous/First Nations/Native American/Pacific Islander",
+      BLA = "Black",
+      WHL = "Hispanic/Latinx, white",
+      WME = "white, Middle Eastern",
+      MEA = "Middle Eastern",
+      AAC = "Asian/Asian-American/Asian-Canadian",
+      JEW = "Jewish",
+      WIN = "Indigenous, white"
+    )
+  ) %>% select(ID, RaceEth_coded)
+
+
+usable_data <- left_join(usable_data, race_eth_coded, by = "ID")
+
+religion_coded <- "FanS2 Religion Coding Jada.xlsx" %>% read_excel(sheet = 1)
+
+religion_coded <- religion_coded %>% 
+  mutate(
+    religion_coded = recode(
+      Jada,
+        AGN = "Agnostic/Agnostic Atheist",
+        AGA = "Agnostic/Agnostic Atheist",
+        SPR = "Spiritual/Spiritual, Not Religious",
+        SNR = "Spiritual/Spiritual, Not Religious",
+        ANG = "Christian",
+        BAP = "Christian",
+        CAT = "Christian",
+        CTC = "Christian",
+        CHR = "Christian",
+        NPC = "Christian",
+        CRO = "Christian",
+        CRE = "Christian",
+        NDC = "Christian",
+        EPI = "Christian",
+        LUT = "Christian",
+        MRM = "Christian",
+        NAZ = "Christian",
+        NOD = "Christian",
+        PRS = "Christian",
+        PRT = "Christian",
+        RCT = "Christian",
+        SDA = "Christian",
+        APA = "Not Applicable/Prefer not to Answer",
+        `NA` = "Not Applicable/Prefer not to Answer",
+        ANM = "Animist",
+        BUD = "Buddhist/Buddhist, Atheist",
+        CRW = "Circle Worship",
+        DAO = "Daoist",
+        HND = "Hindu",
+        INS = "Indigenous Spiritual",
+        ISL = "Muslim",
+        JEJ = "Jewish/Jewish, Atheist",
+        MIX = "Multiple Religions",
+        NOR = "Atheist/None/Areligious/Nonreligious",
+        PAG = "Pagan/Wicca",
+        SAT = "Satanic",
+        SHN = "Shinto",
+        SKH = "Sikh",
+        TAO = "Taoist",
+        TEN = "Tenrikyo",
+        UNI = "Unitarian Universalist",
+        WCA = "Pagan/Wicca"     
+    )
+  ) %>% select(ID, religion_coded)
+
+usable_data <- left_join(usable_data, religion_coded, by = "ID")
+
+```
+
+```{r EFA data, include = F}
+## Getting the data for the EFAs
+p_checklist<-usable_data %>%  
+  select(c("pfan.checklist_1":"pfan.checklist_50")) # Selected only the partnered fantasy checklist and ID
+
+s_checklist<-usable_data %>%  
+  select(c("sfan.checklist_1":"sfan.checklist_50")) # Selected only the solitary fantasy checklist and ID
+
+p_checklist_clean<-p_checklist[-c(38,39,40,41,172,260,282,315,329,395,415,446,460,469,475,476,481,488,501,502,506,543,545,549,560,563), ]
+
+s_checklist_clean<-s_checklist[-c(38,39,40,41,172,260,282,315,329,395,415,446,460,469,475,476,481,488,501,502,506,543,545,549,560,563), ]
+```
+
+```{r polychoric, include= F}
+# Polychoric matrices
+## Partnered
+p_check_poly_lavaan<-lavCor(p_checklist_clean, 
+                            ordered = colnames(p_checklist_clean), # This tells it that the variables are ordinal
+                            missing = "pairwise", #This does pairwise deletion 
+                            output = "cor", #This outputs a correlation matrix
+                            cor.smooth=T
+                            )
+
+## Solitary
+s_check_poly_lavaan<-lavCor(s_checklist_clean, 
+                            ordered = colnames(s_checklist_clean), # This tells it that the variables are ordinal
+                            missing = "pairwise", #This does pairwise deletion 
+                            output = "cor", #This outputs a correlation matrix
+                            cor.smooth=T
+                            )
+```
+
+```{r Partnered EFA, include=F}
+p1 <- '
+efa("efa")*f1 =~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '   
+
+p2 <- '
+efa("efa")*f1+
+efa("efa")*f2=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '   
+p3 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+p4 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+
+p5 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+p6 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+
+p7 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+
+p8 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_27 + pfan.checklist_28 + pfan.checklist_29 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     ' 
+
+efa_p1 <- 
+  cfa(model = p1, # specifying the model
+      sample.cov = p_check_poly_lavaan, # using the polychoric matrix
+      rotation = "geomin", # specifying the rotation
+      estimator = "ULS", # specifying the estimator
+      ordered = TRUE, # not sure if I need to have this
+      missing="pairwise", # doing pairwise deletion
+      sample.nobs = 537, # the number of observations
+      control=list(iter.max=1000) # the maximum amount of iterations
+      )
+
+# Repeating the code for the other models
+efa_p2 <- 
+  cfa(model = p2,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+
+efa_p3 <- 
+   cfa(model = p3,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_p4 <- 
+    cfa(model = p4,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_p5 <- 
+   cfa(model = p5,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_p6 <- 
+    cfa(model = p6,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_p7 <- 
+    cfa(model = p7,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_p8 <- 
+    cfa(model = p8,
+      sample.cov = p_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+```
+
+```{r Solitary EFAs, include=F}
+s1 <- '
+efa("efa")*f1 =~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '   
+
+s2 <- '
+efa("efa")*f1+
+efa("efa")*f2=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '   
+s3 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '  
+s4 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '  
+
+s5 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '  
+s6 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     ' 
+
+s7 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     ' 
+
+s8 <- '
+efa("efa")*f1+
+efa("efa")*f2+
+efa("efa")*f3+
+efa("efa")*f4+
+efa("efa")*f5+
+efa("efa")*f6+
+efa("efa")*f7+
+efa("efa")*f8=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_27 + sfan.checklist_28 + sfan.checklist_29 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '
+
+efa_s1 <- 
+  cfa(model = s1, # specifying the model
+      sample.cov = s_check_poly_lavaan, # using the polychoric matrix
+      rotation = "geomin", # specifying the rotation
+      estimator = "ULS", # specifying the estimator
+      ordered = TRUE, # not sure if I need to have this
+      missing="pairwise", # doing pairwise deletion
+      sample.nobs = 537, # the number of observations
+      control=list(iter.max=1000) # the maximum amount of iterations
+      )
+
+# Repeating the code for the other models
+efa_s2 <- 
+  cfa(model = s2,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+
+efa_s3 <- 
+   cfa(model = s3,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s4 <- 
+    cfa(model = s4,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s5 <- 
+   cfa(model = s5,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s6 <- 
+    cfa(model = s6,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s7 <- 
+    cfa(model = s7,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+efa_s8 <- 
+    cfa(model = s8,
+      sample.cov = s_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+     sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+```
+
+```{r data wrangling, include=F}
+# Getting the item names
+names<-c("Parts of my own or another person’s body (e.g., butt, chest, genitals, feet, etc.)",
+         "Feeling attractive or feeling attracted to someone",
+         "Giving or receiving sexual pleasure",
+         "Feeling sexually satisfied or making someone else feel sexually satisfied",
+         "My own or another person’s sexual arousal/excitement",
+         "Feeling desired/wanted by someone",
+         "Desiring/wanting someone", 
+         "Making out with someone", 
+         "Certain sexual positions (e.g., cowgirl, missionary, etc.)", 
+         "Giving or receiving oral sex (stimulating genitals with the mouth and tongue)",
+         "Other sexual activities (e.g., manually stimulating the genitals)", 
+         "Myself or another person getting undressed",
+         "Myself or another person being naked", 
+         "My own or someone else’s erection/vaginal wetness/etc.",
+         "Heightened physical sensitivity",
+         "Genital sensations (e.g., tingling, warmth, throbbing, etc.)",
+         "Experiencing orgasm", 
+         "Another person experiencing orgasm", 
+         "Using sex toys or other items",
+         "Trying something new",
+         "Tastes",
+         "Scents", 
+         "Sounds (e.g., gasping, moaning, etc.)",
+         "Talking dirty with someone",
+         "The buildup of anticipation or tension",
+         "Teasing/being teased by someone",
+         "Taking control of/dominating someone",
+         "Being taken control of/dominated by someone",
+         "Challenging or feeling challenged by someone",
+         "Caring or being cared for by someone",
+         "Feeling emotionally close with someone",
+         "Feeling connected with someone",
+         "Feeling understood by, or understanding someone",
+         "Exchanging words of affection",
+         "A feeling of commitment with someone",
+         "Holding hands",
+         "Cuddling",
+         "Holding/being held",
+         "Massaging/being massaged",
+         "Caressing/being caressed",
+         "Kissing or being kissed on the face (e.g., cheek, forehead, etc.)",
+         "Sharing a sense of humor",
+         "Laughing with someone",
+         "Feeling appreciation for, or being appreciated by, someone",
+         "Loving or feeling loved by someone",
+         "Respecting or feeling respected by someone",
+         "Feeling comfortable with someone",
+         "Having my needs met, or meeting someone else’s needs",
+         "Feeling protected, or feeling like I can protect someone else",
+         "Being taken care of, or taking care of someone else")
+
+# Making a base code for the largest model ! 
+## Getting the individual loadings
+p8_load<-data.frame(inspect(efa_p8,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s8_load<-data.frame(inspect(efa_s8,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_8<-merge(s8_load, p8_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_8) <- sub("\\.x", " S", colnames(model_8))# Renaming the variables
+colnames(model_8) <- sub("\\.y", " P", colnames(model_8))
+
+## Wrangling the data
+model_8_c <- model_8 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2", "P3", "S3", "Diff3","P4", "S4", "Diff4", "P5", "S5", "Diff5", "P6", "S6", "Diff6","P7", "S7", "Diff7", "P8", "S8", "Diff8") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+```
+
+```{r models, include=F}
+# 7 factors
+## Getting the individual loadings
+p7_load<-data.frame(inspect(efa_p7,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s7_load<-data.frame(inspect(efa_s7,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_7<-merge(s7_load, p7_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_7) <- sub("\\.x", " S", colnames(model_7))# Renaming the variables
+colnames(model_7) <- sub("\\.y", " P", colnames(model_7))
+
+## Wrangling the data
+model_7_c <- model_7 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2", "P3", "S3", "Diff3","P4", "S4", "Diff4", "P5", "S5", "Diff5", "P6", "S6", "Diff6","P7", "S7", "Diff7") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+# 6 factors
+## Getting the individual loadings
+p6_load<-data.frame(inspect(efa_p6,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s6_load<-data.frame(inspect(efa_s6,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_6<-merge(s6_load, p6_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_6) <- sub("\\.x", " S", colnames(model_6))# Renaming the variables
+colnames(model_6) <- sub("\\.y", " P", colnames(model_6))
+
+## Wrangling the data
+model_6_c <- model_6 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2", "P3", "S3", "Diff3","P4", "S4", "Diff4", "P5", "S5", "Diff5", "P6", "S6", "Diff6") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+#5 factors
+## Getting the individual loadings
+p5_load<-data.frame(inspect(efa_p5,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s5_load<-data.frame(inspect(efa_s5,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_5<-merge(s5_load, p5_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_5) <- sub("\\.x", " S", colnames(model_5))# Renaming the variables
+colnames(model_5) <- sub("\\.y", " P", colnames(model_5))
+
+## Wrangling the data
+model_5_c <- model_5 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2", "P3", "S3", "Diff3","P4", "S4", "Diff4", "P5", "S5", "Diff5") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+#4 factors
+## Getting the individual loadings
+p4_load<-data.frame(inspect(efa_p4,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s4_load<-data.frame(inspect(efa_s4,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_4<-merge(s4_load, p4_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_4) <- sub("\\.x", " S", colnames(model_4))# Renaming the variables
+colnames(model_4) <- sub("\\.y", " P", colnames(model_4))
+
+## Wrangling the data
+model_4_c <- model_4 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2", "P3", "S3", "Diff3","P4", "S4", "Diff4") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+# 3 factors
+## Getting the individual loadings
+p3_load<-data.frame(inspect(efa_p3,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s3_load<-data.frame(inspect(efa_s3,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_3<-merge(s3_load, p3_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_3) <- sub("\\.x", " S", colnames(model_3))# Renaming the variables
+colnames(model_3) <- sub("\\.y", " P", colnames(model_3))
+
+## Wrangling the data
+model_3_c <- model_3 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2", "P3", "S3", "Diff3") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+#2 factors
+## Getting the individual loadings
+p2_load<-data.frame(inspect(efa_p2,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s2_load<-data.frame(inspect(efa_s2,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_2<-merge(s2_load, p2_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_2) <- sub("\\.x", " S", colnames(model_2))# Renaming the variables
+colnames(model_2) <- sub("\\.y", " P", colnames(model_2))
+
+## Wrangling the data
+model_2_c <- model_2 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+# 1 factor
+## Getting the individual loadings
+p1_load<-data.frame(inspect(efa_p1,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    "When I had this fantasy, I thought about…" = names,
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )
+
+s1_load<-data.frame(inspect(efa_s1,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_1<-merge(s1_load, p1_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_1) <- sub("\\.x", " S", colnames(model_1))# Renaming the variables
+colnames(model_1) <- sub("\\.y", " P", colnames(model_1))
+
+## Wrangling the data
+model_1_c <- model_1 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+fit_measures_robust <- c("chisq", "df", "tli",
+                         "cfi", "rmsea", "rmsea.ci.lower","rmsea.ci.upper")
+
+```
+
+# EFAs {.tabset}
+## Models {.tabset}
+
+### 1 factor model
+```{r, warning = F, echo = F}
+model_1_c %>%
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 2 factor model
+
+```{r, warning = F, echo = F}
+model_2_c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r Redo 2 factor model: Set up, warning = F, echo = F}
+
+factor_names <- model_2 %>% 
+  wrangle()%>%# wrangling
+  filter(P1>= abs(0.4)|P2>=abs(0.4)|S1>= abs(0.4)|S2>=abs(0.4)|`Checklist item` %in% c("checklist_19","checklist_26"))%>%
+  select(`Checklist item`)%>%
+  as.vector()
+factor_names<-factor_names$`Checklist item`
+
+names_2<-p2_load%>%
+  select(-c("f1", "f2"))%>%
+  filter(!`Checklist item` %in% c("checklist_27", "checklist_28", "checklist_29"))
+```
+
+```{r Redo 2 factor model: Stats, warning = F, echo = F}
+# Getting the information for partnered
+p_2_checklist<-p_checklist_clean %>% 
+  select(ends_with(factor_names))
+
+# Rerunning the correlation
+p_2_check_poly_lavaan<-lavCor(p_2_checklist, 
+                            ordered = colnames(p_2_checklist), # This tells it that the variables are ordinal
+                            missing = "pairwise", #This does pairwise deletion 
+                            output = "cor", #This outputs a correlation matrix
+                            cor.smooth=T
+                            )
+
+# Rerunning the model
+p2_2 <- '
+efa("efa")*f1+
+efa("efa")*f2=~ pfan.checklist_1 + pfan.checklist_2 + pfan.checklist_3 + pfan.checklist_4 + pfan.checklist_5 +
+                  pfan.checklist_6 + pfan.checklist_7 + pfan.checklist_8 + pfan.checklist_9 + pfan.checklist_10 +
+                  pfan.checklist_11 + pfan.checklist_12 + pfan.checklist_13 + pfan.checklist_14 + pfan.checklist_15 +
+                  pfan.checklist_16 + pfan.checklist_17 + pfan.checklist_18 + pfan.checklist_19 + pfan.checklist_20 +
+                  pfan.checklist_21 + pfan.checklist_22 + pfan.checklist_23 + pfan.checklist_24 + pfan.checklist_25 +
+                  pfan.checklist_26 + pfan.checklist_30 +
+                  pfan.checklist_31 + pfan.checklist_32 + pfan.checklist_33 + pfan.checklist_34 + pfan.checklist_35 +
+                  pfan.checklist_36 + pfan.checklist_37 + pfan.checklist_38 + pfan.checklist_39 + pfan.checklist_40 +
+                  pfan.checklist_41 + pfan.checklist_42 + pfan.checklist_43 + pfan.checklist_44 + pfan.checklist_45 +
+                  pfan.checklist_46 + pfan.checklist_47 + pfan.checklist_48 + pfan.checklist_49 + pfan.checklist_50
+     '  
+# Rerunning the EFA
+efa_p2_2 <- 
+  cfa(model = p2_2,
+      sample.cov = p_2_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+# Getting the information for solitary
+s_2_checklist<-s_checklist_clean %>% 
+  select(ends_with(factor_names))
+
+# Rerunning the correlation
+s_2_check_poly_lavaan<-lavCor(s_2_checklist, 
+                            ordered = colnames(s_2_checklist), # This tells it that the variables are ordinal
+                            missing = "pairwise", #This does pairwise deletion 
+                            output = "cor", #This outputs a correlation matrix
+                            cor.smooth=T
+                            )
+# Rerunning the model
+s2_2 <- '
+efa("efa")*f1+
+efa("efa")*f2=~ sfan.checklist_1 + sfan.checklist_2 + sfan.checklist_3 + sfan.checklist_4 + sfan.checklist_5 +
+                  sfan.checklist_6 + sfan.checklist_7 + sfan.checklist_8 + sfan.checklist_9 + sfan.checklist_10 +
+                  sfan.checklist_11 + sfan.checklist_12 + sfan.checklist_13 + sfan.checklist_14 + sfan.checklist_15 +
+                  sfan.checklist_16 + sfan.checklist_17 + sfan.checklist_18 + sfan.checklist_19 + sfan.checklist_20 +
+                  sfan.checklist_21 + sfan.checklist_22 + sfan.checklist_23 + sfan.checklist_24 + sfan.checklist_25 +
+                  sfan.checklist_26 + sfan.checklist_30 +
+                  sfan.checklist_31 + sfan.checklist_32 + sfan.checklist_33 + sfan.checklist_34 + sfan.checklist_35 +
+                  sfan.checklist_36 + sfan.checklist_37 + sfan.checklist_38 + sfan.checklist_39 + sfan.checklist_40 +
+                  sfan.checklist_41 + sfan.checklist_42 + sfan.checklist_43 + sfan.checklist_44 + sfan.checklist_45 +
+                  sfan.checklist_46 + sfan.checklist_47 + sfan.checklist_48 + sfan.checklist_49 + sfan.checklist_50
+     '   
+# Rerunning the EFA
+efa_s2_2 <- 
+  cfa(model = s2_2,
+      sample.cov = s_2_check_poly_lavaan,
+      rotation = "geomin",
+      estimator = "ULS",
+      ordered = TRUE,
+      missing="pairwise",
+      sample.nobs = 537,
+      control=list(iter.max=1000)
+      )
+
+```
+
+```{r Redo 2 factor model: Wrangling, warning = F, echo = F}
+## Getting the individual loadings
+p2_2_load<-data.frame(inspect(efa_p2_2,what="std")$lambda) %>% # Getting the loadings 
+  tibble::rownames_to_column("Checklist item")%>%
+  mutate(
+    `Checklist item`=gsub("pfan.","",as.character(`Checklist item`))
+  )%>% merge(., names_2,by.x = "Checklist item", by.y = "Checklist item", all=T)
+
+s2_2_load<-data.frame(inspect(efa_s2_2,what="std")$lambda) %>% # Getting the loadings
+  tibble::rownames_to_column("Checklist item")%>%
+   mutate(
+    `Checklist item`=gsub("sfan.","",as.character(`Checklist item`))
+  )
+ 
+
+## Merging the two into one large dataset
+model_2_2<-merge(s2_2_load, p2_2_load, by.x = "Checklist item", by.y = "Checklist item", all = T)
+
+colnames(model_2_2) <- sub("\\.x", " S", colnames(model_2_2))# Renaming the variables
+colnames(model_2_2) <- sub("\\.y", " P", colnames(model_2_2))
+
+## Wrangling the data
+model_2_2c <- model_2_2 %>% 
+  wrangle()%>% # wrangling
+  select("When I had this fantasy, I thought about…", "Checklist item","P1","S1", "Diff1", "P2", "S2", "Diff2") %>% 
+  arrange(
+  across(starts_with("P"),
+         .fns = ~ desc(abs(.x) >= .4)
+         )
+  )%>% format()
+
+```
+
+### 2 factor model, rerun
+
+```{r, warning = F, echo = F}
+model_2_2c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 3 factor model
+```{r, warning = F, echo = F}
+model_3_c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 4 factor model
+```{r, warning = F, echo = F}
+model_4_c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 5 factor model
+```{r, warning = F, echo = F}
+model_5_c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 6 factor model
+```{r, warning = F, echo = F}
+model_6_c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 7 factor model
+```{r, warning = F, echo = F}
+model_7_c  %>%
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 8 factor model
+
+```{r, warning = F, echo = F}
+model_8_c %>% 
+ kbl(format = "html", escape = F) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+## Fit {.tabset}
+
+### Partnered fantasy {.tabset}
+
+#### Fit Indices 
+```{r, warning = F, echo = F}
+# collect them for each model
+rbind(
+  fitmeasures(efa_p1, fit_measures_robust),
+  fitmeasures(efa_p2, fit_measures_robust),
+  fitmeasures(efa_p3, fit_measures_robust),
+  fitmeasures(efa_p4, fit_measures_robust),
+  fitmeasures(efa_p5, fit_measures_robust),
+  fitmeasures(efa_p6, fit_measures_robust),
+  fitmeasures(efa_p7, fit_measures_robust),
+  fitmeasures(efa_p8, fit_measures_robust)
+  ) %>% 
+  # wrangle
+  data.frame()  %>% 
+  mutate(
+    "Factor Number"=c(1:8),
+    "Delta RMSEA"= rmsea-lag(rmsea),
+    "Delta CFI"= cfi-lag(cfi),
+    "Delta Chi Squared"= chisq-lag(chisq),
+    "Delta TLI"= tli-lag(tli),
+  )%>%
+  select(
+    "Factor Number", "chisq", "df", "cfi", "tli", "rmsea", "rmsea.ci.lower", "rmsea.ci.upper","Delta Chi Squared",
+    "Delta CFI","Delta TLI","Delta RMSEA"
+  ) %>%
+   kbl(format = "html", escape = F, digits = 5) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+  
+```
+#### Parallel Analysis
+```{r, warning = F, echo = F}
+
+fa.parallel(p_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly")
+```
+
+
+### Solitary fantasy {.tabset}
+
+#### Fit Indices
+```{r, warning = F, echo = F}
+# collect them for each model
+rbind(
+  fitmeasures(efa_s1, fit_measures_robust),
+  fitmeasures(efa_s2, fit_measures_robust),
+  fitmeasures(efa_s3, fit_measures_robust),
+  fitmeasures(efa_s4, fit_measures_robust),
+  fitmeasures(efa_s5, fit_measures_robust),
+  fitmeasures(efa_s6, fit_measures_robust),
+  fitmeasures(efa_s7, fit_measures_robust),
+  fitmeasures(efa_s8, fit_measures_robust)
+  ) %>% 
+  # wrangle
+  data.frame()  %>% 
+  mutate(
+    "Factor Number"=c(1:8),
+    "Delta RMSEA"= rmsea-lag(rmsea),
+    "Delta CFI"= cfi-lag(cfi),
+    "Delta Chi Squared"= chisq-lag(chisq),
+    "Delta TLI"= tli-lag(tli),
+  )%>%
+  select(
+    "Factor Number", "chisq", "df", "cfi", "tli", "rmsea", "rmsea.ci.lower", "rmsea.ci.upper","Delta Chi Squared",
+    "Delta CFI","Delta TLI","Delta RMSEA"
+  ) %>%
+   kbl(format = "html", escape = F, digits = 5) %>%
+ kable_styling(bootstrap_options = c("striped", "hover"))
+  
+```
+
+#### Parallel Analysis
+```{r, warning = F, echo = F}
+
+fa.parallel(s_check_poly_lavaan, n.obs=537, fm = "uls", n.iter = 20, cor = "poly")
+```
+
+```{r Getting the composite scores, include = F}
+#Erotic names
+erotic_names <- model_2_2 %>% 
+  wrangle()%>%# wrangling
+  filter(P1>= abs(0.4)|S1>= abs(0.4)|`Checklist item` %in% c("checklist_19","checklist_26"))%>%
+  select(`Checklist item`)%>%
+  as.vector()
+
+erotic_names<-erotic_names$`Checklist item`
+
+erotic_names_p<-gsub("^", "pfan.",erotic_names)
+
+erotic_names_s<-gsub("^", "sfan.",erotic_names)
+
+#Nurturant names
+nurt_names <- model_2_2 %>% 
+  wrangle()%>%# wrangling
+  filter(P2>= abs(0.4)|S2>= abs(0.4))%>%
+  select(`Checklist item`)%>%
+  as.vector()
+
+nurt_names<-nurt_names$`Checklist item`
+
+nurt_names_p<-gsub("^", "pfan.",nurt_names)
+
+nurt_names_s<-gsub("^", "sfan.",nurt_names)
+
+# Calculating the averages
+usable_data1<-usable_data %>% # I made a new data frame because I was worried I would somehow ruin the current one
+  mutate(
+    ave_ero_p= rowMeans(subset(., select=erotic_names_p), na.rm = T),
+    ave_ero_s= rowMeans(subset(., select=erotic_names_s), na.rm = T),
+    ave_nurt_p= rowMeans(subset(., select=nurt_names_p), na.rm = T),
+    ave_nurt_s= rowMeans(subset(., select=nurt_names_s), na.rm = T)
+  )
+
+```
